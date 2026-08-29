@@ -1,15 +1,5 @@
 import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/Card";
-import { Button } from "@/components/Button";
-import { EmptyState } from "@/components/EmptyState";
-import { ResumeUploader } from "@/components/ResumeUploader";
-import { JobDescriptionInput } from "@/components/JobDescriptionInput";
+import { AnalyzeForm } from "@/components/AnalyzeForm";
 
 export const metadata: Metadata = {
   title: "Analyze",
@@ -28,48 +18,9 @@ export default function AnalyzePage() {
         </p>
       </header>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Resume</CardTitle>
-            <CardDescription>
-              Upload your resume in PDF format.
-            </CardDescription>
-          </CardHeader>
-          <ResumeUploader />
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Job Description</CardTitle>
-            <CardDescription>
-              Paste the job description you&apos;re targeting.
-            </CardDescription>
-          </CardHeader>
-          <JobDescriptionInput />
-        </Card>
+      <div className="mt-10">
+        <AnalyzeForm />
       </div>
-
-      <div className="mt-6 flex flex-col items-start gap-2">
-        <Button size="lg" disabled aria-disabled="true">
-          Analyze — coming in the next checkpoint
-        </Button>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Analysis isn&apos;t wired up yet. This checkpoint builds the interface
-          only.
-        </p>
-      </div>
-
-      <section aria-labelledby="analysis-result" className="mt-12">
-        <h2 id="analysis-result" className="sr-only">
-          Analysis result
-        </h2>
-        <EmptyState
-          icon={Sparkles}
-          title="Your analysis will appear here"
-          description="Upload your resume and add a job description to get started."
-        />
-      </section>
     </div>
   );
 }
