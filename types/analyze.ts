@@ -1,8 +1,11 @@
 /**
  * Shared contract for the `POST /api/analyze` route.
  *
- * This checkpoint only performs PDF text extraction — no AI analysis yet.
+ * The route extracts the resume text from the uploaded PDF, sends it plus the
+ * job description to the LLM, and returns a Zod-validated {@link ResumeAnalysis}.
  */
+
+import type { ResumeAnalysis } from "./analysis";
 
 export type AnalyzeErrorCode =
   | "MISSING_RESUME"
@@ -13,22 +16,12 @@ export type AnalyzeErrorCode =
   | "JOB_DESCRIPTION_TOO_LONG"
   | "EMPTY_RESUME"
   | "EXTRACTION_FAILED"
+  | "ANALYSIS_FAILED"
   | "SERVER_ERROR";
-
-export type ResumeExtractionResult = {
-  resumeName: string;
-  /**
-   * The extracted resume text. Only returned outside production — it is a
-   * temporary aid for verifying extraction in this checkpoint and will be
-   * replaced by AI analysis output next.
-   */
-  resumeText?: string;
-  resumeCharacterCount: number;
-};
 
 export type AnalyzeSuccessResponse = {
   success: true;
-  data: ResumeExtractionResult;
+  data: ResumeAnalysis;
 };
 
 export type AnalyzeErrorResponse = {

@@ -1,27 +1,48 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, Loader2, Sparkles } from "lucide-react";
+import { AnalysisResult } from "./AnalysisResult";
 import { Button } from "./Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { JobDescriptionInput } from "./JobDescriptionInput";
 import { ResumeUploader } from "./ResumeUploader";
 import { validateJobDescription, validateResumeFile } from "@/lib/validation";
-import type { AnalyzeResponse, ResumeExtractionResult } from "@/types/analyze";
+import type { ResumeAnalysis } from "@/types/analysis";
+import type { AnalyzeResponse } from "@/types/analyze";
 
 type Status = "idle" | "submitting" | "success" | "error";
+
+const LOADING_MESSAGES = [
+  "Reading your resume...",
+  "Analyzing your skills...",
+  "Comparing job requirements...",
+  "Evaluating your experience...",
+  "Generating recommendations...",
+  "Preparing interview questions...",
+];
 
 export function AnalyzeForm() {
   const [resume, setResume] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<ResumeExtractionResult | null>(null);
+  const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | undefined>();
   const [jobDescriptionError, setJobDescriptionError] = useState<string | undefined>();
+  const [loadingStep, setLoadingStep] = useState(0);
 
   const submitting = status === "submitting";
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    if (!submitting) return;
+    const id = setInterval(() => {
+      setLoadingStep((step) => Math.min(step + 1, LOADING_MESSAGES.length - 1));
+    }, 2500);
+    return () => clearInterval(id);
+  }, [submitting]);
 
   function handleResumeSelect(file: File | null) {
     setResume(file);
@@ -37,7 +58,7 @@ export function AnalyzeForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return; // guard against duplicate submissions
+    if (inFlight.current) return; // guard against duplicate submissions
 
     const resumeIssue = validateResumeFile(resume);
     const jobDescriptionIssue = validateJobDescription(jobDescription);
@@ -46,8 +67,10 @@ export function AnalyzeForm() {
     setFormError(null);
     if (resumeIssue || jobDescriptionIssue) return;
 
+    inFlight.current = true;
+    setLoadingStep(0);
     setStatus("submitting");
-    setResult(null);
+    setAnalysis(null);
 
     try {
       const body = new FormData();
@@ -63,13 +86,15 @@ export function AnalyzeForm() {
         return;
       }
 
-      setResult(payload.data);
+      setAnalysis(payload.data);
       setStatus("success");
     } catch {
       setFormError(
         "We couldn't reach the server. Check your connection and try again.",
       );
       setStatus("error");
+    } finally {
+      inFlight.current = false;
     }
   }
 
@@ -110,16 +135,17 @@ export function AnalyzeForm() {
           {submitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Reading resume...
+              {LOADING_MESSAGES[loadingStep]}
             </>
           ) : (
             "Analyze resume"
           )}
         </Button>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          AI analysis arrives in the next checkpoint. For now this extracts the
-          text from your PDF so we can verify it.
-        </p>
+        {submitting ? (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400" aria-live="polite">
+            This can take up to a minute while the AI reviews your resume.
+          </p>
+        ) : null}
       </div>
 
       {formError ? (
@@ -136,8 +162,8 @@ export function AnalyzeForm() {
         <h2 id="analysis-result" className="sr-only">
           Analysis result
         </h2>
-        {status === "success" && result ? (
-          <ExtractionResult result={result} />
+        {status === "success" && analysis ? (
+          <AnalysisResult analysis={analysis} />
         ) : (
           <EmptyState
             icon={Sparkles}
@@ -147,57 +173,5 @@ export function AnalyzeForm() {
         )}
       </section>
     </form>
-  );
-}
-
-function ExtractionResult({ result }: { result: ResumeExtractionResult }) {
-  return (
-    <Card className="border-green-200 dark:border-green-900">
-      <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-        <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
-        <p className="font-semibold">Resume processed successfully.</p>
-      </div>
-
-      <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Resume
-          </dt>
-          <dd className="mt-1 text-sm text-zinc-900 dark:text-zinc-100">
-            {result.resumeName}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Extracted characters
-          </dt>
-          <dd className="mt-1 text-sm tabular-nums text-zinc-900 dark:text-zinc-100">
-            {result.resumeCharacterCount.toLocaleString()}
-          </dd>
-        </div>
-      </dl>
-
-      <details className="mt-6 rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <summary className="cursor-pointer rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-zinc-300 dark:hover:bg-zinc-800/50">
-          View extracted text
-        </summary>
-        <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-          {result.resumeText ? (
-            <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-zinc-700 dark:text-zinc-300">
-              {result.resumeText}
-            </pre>
-          ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              The extracted text preview is disabled in production.
-            </p>
-          )}
-        </div>
-      </details>
-
-      <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
-        This is a temporary view for verifying PDF extraction. AI analysis
-        replaces it in the next checkpoint.
-      </p>
-    </Card>
   );
 }

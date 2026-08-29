@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { analyzeResume, AiError } from "@/lib/ai";
 import { extractResumeText, PdfError } from "@/lib/pdf";
 import { validateJobDescription, validateResumeFile } from "@/lib/validation";
 import type { AnalyzeErrorCode, AnalyzeResponse } from "@/types/analyze";
 
-// PDF parsing needs the Node.js runtime; never cache this handler.
+// PDF parsing + the LLM call need the Node.js runtime; never cache this handler.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function errorResponse(
   code: AnalyzeErrorCode,
@@ -13,12 +15,6 @@ function errorResponse(
   status: number,
 ): NextResponse<AnalyzeResponse> {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
-}
-
-/** Strips any path components and caps the length of a client-supplied filename. */
-function safeFileName(name: string): string {
-  const base = name.split(/[\\/]/).pop() ?? "resume.pdf";
-  return base.slice(0, 200);
 }
 
 export async function POST(request: Request): Promise<NextResponse<AnalyzeResponse>> {
@@ -47,25 +43,12 @@ export async function POST(request: Request): Promise<NextResponse<AnalyzeRespon
     return errorResponse(jobDescriptionError.code, jobDescriptionError.message, 400);
   }
 
+  // 1. Extract resume text from the PDF.
+  let resumeText: string;
   try {
-    // resumeFile is non-null here — validateResumeFile guarantees it.
+    // resumeFile / jobDescription are non-null here — the validators guarantee it.
     const bytes = new Uint8Array(await resumeFile!.arrayBuffer());
-    const resumeText = await extractResumeText(bytes);
-
-    const isProduction = process.env.NODE_ENV === "production";
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          resumeName: safeFileName(resumeFile!.name),
-          resumeCharacterCount: resumeText.length,
-          // Only surfaced outside production — see types/analyze.ts.
-          ...(isProduction ? {} : { resumeText }),
-        },
-      },
-      { status: 200 },
-    );
+    resumeText = await extractResumeText(bytes);
   } catch (error) {
     if (error instanceof PdfError) {
       if (error.code === "INVALID_FILE") {
@@ -84,12 +67,32 @@ export async function POST(request: Request): Promise<NextResponse<AnalyzeRespon
         422,
       );
     }
-
-    // Log a redacted marker only — never the resume contents or raw error.
-    console.error("[api/analyze] unexpected failure while processing resume");
+    console.error("[api/analyze] unexpected failure during PDF extraction");
     return errorResponse(
       "SERVER_ERROR",
       "Something went wrong while processing your resume. Please try again.",
+      500,
+    );
+  }
+
+  // 2. Send resume text + job description to the LLM and validate the result.
+  try {
+    const analysis = await analyzeResume(resumeText, jobDescription!);
+    return NextResponse.json({ success: true, data: analysis }, { status: 200 });
+  } catch (error) {
+    if (error instanceof AiError) {
+      // Safe technical marker only — no resume text, no keys, no raw provider payload.
+      console.error(`[api/analyze] AI analysis failed: ${error.reason}`);
+      return errorResponse(
+        "ANALYSIS_FAILED",
+        "AI analysis is temporarily unavailable. Please try again.",
+        503,
+      );
+    }
+    console.error("[api/analyze] unexpected failure during AI analysis");
+    return errorResponse(
+      "SERVER_ERROR",
+      "Something went wrong while analyzing your resume. Please try again.",
       500,
     );
   }
