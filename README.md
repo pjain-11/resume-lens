@@ -36,7 +36,7 @@ The application is intentionally designed as a lightweight portfolio project.
 - Tailwind CSS
 - Lucide React
 - Zod
-- LLM API
+- Google Gemini API (`@google/genai`)
 
 ## Architecture
 

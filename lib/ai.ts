@@ -1,17 +1,16 @@
 import "server-only";
 
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { ApiError, GoogleGenAI } from "@google/genai";
 import { analysisSchema, type ResumeAnalysis } from "@/types/analysis";
 
 /**
- * LLM provider: Anthropic Claude via the official `@anthropic-ai/sdk`.
+ * LLM provider: Google Gemini via the official `@google/genai` SDK.
  * Isolated here so the model or provider can be swapped without touching the
  * API route. This module is server-only — it must never be imported by a
  * client component (`server-only` throws if it is).
  */
 
-const MODEL = process.env.LLM_MODEL?.trim() || "claude-opus-5";
+const MODEL = process.env.LLM_MODEL?.trim() || "gemini-2.5-flash";
 
 /** Cap on how much resume / job text we send, to bound cost and latency. */
 const MAX_INPUT_CHARS = 20_000;
@@ -62,7 +61,21 @@ matchingSkills: only skills clearly evidenced in BOTH the resume and the job des
 missingSkills: only meaningful requirements from the job description not clearly demonstrated in the resume. Focus on important gaps, not every possible technology.
 experienceAnalysis: one concise paragraph covering relevant experience, required experience, relevant responsibilities/projects, and important gaps. Never invent years of experience.
 resumeSuggestions: practical suggestions grounded in the actual resume. Never suggest adding skills the candidate does not have.
-interviewQuestions: exactly 5 specific questions grounded in the candidate's resume, the role, and the matching/missing skills. No generic HR questions.`;
+interviewQuestions: exactly 5 specific questions grounded in the candidate's resume, the role, and the matching/missing skills. No generic HR questions.
+
+Respond with ONLY a JSON object (no markdown, no code fences) with exactly these keys:
+{
+  "overallScore": integer 0-100,
+  "skillsMatchScore": integer 0-100,
+  "experienceMatchScore": integer 0-100,
+  "educationMatchScore": integer 0-100,
+  "summary": string,
+  "matchingSkills": array of strings,
+  "missingSkills": array of strings,
+  "experienceAnalysis": string,
+  "resumeSuggestions": array of strings,
+  "interviewQuestions": array of exactly 5 strings
+}`;
 
 function clamp(text: string): string {
   return text.length > MAX_INPUT_CHARS ? text.slice(0, MAX_INPUT_CHARS) : text;
@@ -80,6 +93,13 @@ function buildUserPrompt(resumeText: string, jobDescription: string): string {
   ].join("\n");
 }
 
+/** Removes a ```json … ``` fence if the model added one despite instructions. */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return match ? match[1].trim() : trimmed;
+}
+
 /**
  * Sends the resume text and job description to the LLM and returns a
  * Zod-validated analysis. Throws {@link AiError} for any failure — the caller
@@ -94,40 +114,50 @@ export async function analyzeResume(
     throw new AiError("MISSING_KEY", "LLM_API_KEY is not configured.");
   }
 
-  const client = new Anthropic({ apiKey, maxRetries: 2 });
+  const ai = new GoogleGenAI({ apiKey });
 
-  let parsedOutput: unknown;
+  let rawText: string | undefined;
   try {
-    const message = await client.messages.parse({
+    const response = await ai.models.generateContent({
       model: MODEL,
-      max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserPrompt(resumeText, jobDescription) }],
-      output_config: {
-        effort: "low",
-        format: zodOutputFormat(analysisSchema),
+      contents: buildUserPrompt(resumeText, jobDescription),
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        temperature: 0.3,
+        maxOutputTokens: 4096,
+        // Keep latency predictable; the task is well-specified.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
-    parsedOutput = message.parsed_output;
-  } catch (error) {
-    // The zod helper throws AnthropicError (a plain Error subclass, not an
-    // APIError) when the model's JSON fails to parse or validate.
-    if (
-      error instanceof Anthropic.APIError ||
-      error instanceof Anthropic.APIConnectionError
-    ) {
-      throw new AiError(
-        "PROVIDER_ERROR",
-        `Provider request failed (${
-          error instanceof Anthropic.APIError && error.status ? error.status : "network"
-        }).`,
-      );
+
+    const blockReason = response.promptFeedback?.blockReason;
+    if (blockReason) {
+      throw new AiError("PROVIDER_ERROR", `Request blocked (${blockReason}).`);
     }
-    throw new AiError("INVALID_RESPONSE", "The model returned an unusable response.");
+
+    rawText = response.text;
+  } catch (error) {
+    if (error instanceof AiError) throw error;
+    if (error instanceof ApiError) {
+      throw new AiError("PROVIDER_ERROR", `Provider request failed (${error.status}).`);
+    }
+    throw new AiError("PROVIDER_ERROR", "Provider request failed (network).");
   }
 
-  // Never trust the model — validate again explicitly.
-  const result = analysisSchema.safeParse(parsedOutput);
+  if (!rawText || !rawText.trim()) {
+    throw new AiError("INVALID_RESPONSE", "The model returned an empty response.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripCodeFence(rawText));
+  } catch {
+    throw new AiError("INVALID_RESPONSE", "The model response was not valid JSON.");
+  }
+
+  // Never trust the model — validate explicitly.
+  const result = analysisSchema.safeParse(parsed);
   if (!result.success) {
     throw new AiError(
       "INVALID_RESPONSE",
