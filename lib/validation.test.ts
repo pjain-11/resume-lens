@@ -33,7 +33,7 @@ describe("validateResumeFile", () => {
     expect(validateResumeFile(pdf({ type: "image/png" }))?.code).toBe("INVALID_FILE");
   });
 
-  it("rejects a file larger than 5 MB", () => {
+  it("rejects a file larger than 4 MB", () => {
     expect(validateResumeFile(pdf({ size: MAX_RESUME_BYTES + 1 }))?.code).toBe(
       "FILE_TOO_LARGE",
     );

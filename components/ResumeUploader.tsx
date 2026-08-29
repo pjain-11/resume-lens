@@ -135,7 +135,7 @@ export function ResumeUploader({
           </span>
         </p>
         <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
-          PDF up to 5 MB
+          PDF up to 4 MB
         </p>
       </div>
 

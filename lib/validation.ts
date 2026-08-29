@@ -1,6 +1,6 @@
 import type { AnalyzeErrorCode } from "@/types/analyze";
 
-export const MAX_RESUME_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_RESUME_BYTES = 4 * 1024 * 1024; // 4 MB (stays under Vercel's 4.5 MB request-body limit)
 export const JOB_DESCRIPTION_MIN_LENGTH = 100;
 export const JOB_DESCRIPTION_MAX_LENGTH = 20_000;
 
@@ -47,7 +47,7 @@ export function validateResumeFile(file: FileLike | null | undefined): FieldErro
   if (file.size > MAX_RESUME_BYTES) {
     return {
       code: "FILE_TOO_LARGE",
-      message: "Resume file must be smaller than 5 MB.",
+      message: "Resume file must be smaller than 4 MB.",
     };
   }
 
