@@ -9,3 +9,14 @@ export function formatBytes(bytes: number): string {
   const mb = kb / 1024;
   return `${mb.toFixed(1)} MB`;
 }
+
+/** Formats an ISO timestamp as e.g. `29 Aug 2026`. Falls back gracefully. */
+export function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}

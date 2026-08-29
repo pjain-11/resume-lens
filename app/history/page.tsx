@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Clock } from "lucide-react";
-import { buttonClasses } from "@/components/Button";
-import { EmptyState } from "@/components/EmptyState";
+import { AnalysisHistory } from "@/components/AnalysisHistory";
 
 export const metadata: Metadata = {
   title: "History",
-  description: "Your previous resume analyses will appear here.",
+  description: "Your saved resume analyses, stored locally in your browser.",
 };
 
 export default function HistoryPage() {
@@ -17,21 +14,12 @@ export default function HistoryPage() {
           Analysis History
         </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-          Your previous resume analyses will appear here.
+          Your saved resume analyses. These are stored only in this browser.
         </p>
       </header>
 
       <div className="mt-10">
-        <EmptyState
-          icon={Clock}
-          title="No analyses yet"
-          description="Your previous resume analyses will appear here once you run one."
-          action={
-            <Link href="/analyze" className={buttonClasses("primary", "md")}>
-              Analyze Resume
-            </Link>
-          }
-        />
+        <AnalysisHistory />
       </div>
     </div>
   );

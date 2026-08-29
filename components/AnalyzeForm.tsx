@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Loader2, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, Check, Loader2, Save, Sparkles } from "lucide-react";
 import { AnalysisResult } from "./AnalysisResult";
-import { Button } from "./Button";
+import { Button, buttonClasses } from "./Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { JobDescriptionInput } from "./JobDescriptionInput";
 import { ResumeUploader } from "./ResumeUploader";
+import { deriveJobTitle, saveAnalysis } from "@/lib/storage";
 import { validateJobDescription, validateResumeFile } from "@/lib/validation";
 import type { ResumeAnalysis } from "@/types/analysis";
 import type { AnalyzeResponse } from "@/types/analyze";
+
+type AnalysisMeta = { resumeName: string; jobTitle: string };
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -28,6 +32,9 @@ export function AnalyzeForm() {
   const [jobDescription, setJobDescription] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
+  const [analysisMeta, setAnalysisMeta] = useState<AnalysisMeta | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | undefined>();
   const [jobDescriptionError, setJobDescriptionError] = useState<string | undefined>();
@@ -71,6 +78,9 @@ export function AnalyzeForm() {
     setLoadingStep(0);
     setStatus("submitting");
     setAnalysis(null);
+    setAnalysisMeta(null);
+    setSavedId(null);
+    setSaveError(null);
 
     try {
       const body = new FormData();
@@ -87,6 +97,10 @@ export function AnalyzeForm() {
       }
 
       setAnalysis(payload.data);
+      setAnalysisMeta({
+        resumeName: resume?.name ?? "resume.pdf",
+        jobTitle: deriveJobTitle(jobDescription),
+      });
       setStatus("success");
     } catch {
       setFormError(
@@ -95,6 +109,31 @@ export function AnalyzeForm() {
       setStatus("error");
     } finally {
       inFlight.current = false;
+    }
+  }
+
+  function handleReset() {
+    setResume(null);
+    setJobDescription("");
+    setStatus("idle");
+    setAnalysis(null);
+    setAnalysisMeta(null);
+    setSavedId(null);
+    setSaveError(null);
+    setFormError(null);
+    setResumeError(undefined);
+    setJobDescriptionError(undefined);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }
+
+  function handleSave() {
+    if (!analysis || !analysisMeta || savedId) return; // no duplicate saves
+    const saved = saveAnalysis({ analysis, ...analysisMeta });
+    if (saved) {
+      setSavedId(saved.id);
+      setSaveError(null);
+    } else {
+      setSaveError("Couldn't save this analysis to your browser storage.");
     }
   }
 
@@ -163,7 +202,58 @@ export function AnalyzeForm() {
           Analysis result
         </h2>
         {status === "success" && analysis ? (
-          <AnalysisResult analysis={analysis} />
+          <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={savedId !== null}
+                  aria-disabled={savedId !== null}
+                >
+                  {savedId !== null ? (
+                    <>
+                      <Check className="h-4 w-4" aria-hidden="true" />
+                      Analysis saved
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" aria-hidden="true" />
+                      Save Analysis
+                    </>
+                  )}
+                </Button>
+                {savedId !== null ? (
+                  <span
+                    className="text-sm text-green-600 dark:text-green-400"
+                    aria-live="polite"
+                  >
+                    Analysis saved.
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className={buttonClasses("secondary", "sm")}
+                >
+                  Analyze Another
+                </button>
+                <Link href="/history" className={buttonClasses("secondary", "sm")}>
+                  View History
+                </Link>
+              </div>
+            </div>
+
+            {saveError ? (
+              <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+                {saveError}
+              </p>
+            ) : null}
+
+            <AnalysisResult analysis={analysis} />
+          </div>
         ) : (
           <EmptyState
             icon={Sparkles}

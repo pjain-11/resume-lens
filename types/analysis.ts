@@ -30,3 +30,21 @@ export const analysisSchema = z.object({
 });
 
 export type ResumeAnalysis = z.infer<typeof analysisSchema>;
+
+/** Alias used by the history feature. */
+export type AnalysisResult = ResumeAnalysis;
+
+/**
+ * One saved analysis in the browser-local history (`localStorage`).
+ * The schema is used to validate anything read back from storage.
+ */
+export const analysisHistoryItemSchema = z.object({
+  id: z.string().min(1),
+  resumeName: z.string().min(1),
+  jobTitle: z.string().min(1),
+  /** ISO timestamp of when the analysis was saved. */
+  createdAt: z.string().min(1),
+  analysis: analysisSchema,
+});
+
+export type AnalysisHistoryItem = z.infer<typeof analysisHistoryItemSchema>;
