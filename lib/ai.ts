@@ -10,7 +10,7 @@ import { analysisSchema, type ResumeAnalysis } from "@/types/analysis";
  * client component (`server-only` throws if it is).
  */
 
-const MODEL = process.env.LLM_MODEL?.trim() || "gemini-2.5-flash";
+const MODEL = process.env.LLM_MODEL?.trim() || "gemini-3.6-flash";
 
 /** Cap on how much resume / job text we send, to bound cost and latency. */
 const MAX_INPUT_CHARS = 20_000;
@@ -125,9 +125,8 @@ export async function analyzeResume(
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         temperature: 0.3,
-        maxOutputTokens: 4096,
-        // Keep latency predictable; the task is well-specified.
-        thinkingConfig: { thinkingBudget: 0 },
+        // Generous: Gemini 3.x reasoning tokens also count against this budget.
+        maxOutputTokens: 8192,
       },
     });
 
