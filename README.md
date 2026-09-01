@@ -3,6 +3,7 @@
 AI-powered resume and job description match analyzer.
 
 🔗 **Live Demo:** `https://resume-lens-liart.vercel.app/`
+🎥 **Demo Video:** `https://youtu.be/dZ8-eWEKI6k`
 
 ResumeLens compares a candidate's resume with a job description and provides actionable insights to help improve job matching and interview preparation.
 
