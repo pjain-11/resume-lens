@@ -1,149 +1,177 @@
 # ResumeLens
 
-AI-powered resume and job match analyzer.
+AI-powered resume and job description match analyzer.
 
-## Overview
+🔗 **Live Demo:** `https://resume-lens-liart.vercel.app/`
 
-ResumeLens is a small AI-powered application that compares a candidate's resume
-against a job description and provides:
+ResumeLens compares a candidate's resume with a job description and provides actionable insights to help improve job matching and interview preparation.
 
-- Overall match score
-- Skills match
-- Missing skills
-- Experience analysis
-- Resume improvement suggestions
-- Interview questions
+## Features
 
-The application is intentionally designed as a lightweight portfolio project.
-
-## Planned Features
-
-- Resume PDF upload
-- Resume text extraction
-- Job description analysis
-- AI-powered resume/job matching
-- Structured AI response
-- Resume improvement suggestions
-- Interview question generation
-- Analysis history
-- Local browser storage
+* 📄 Resume PDF upload
+* 📝 Resume text extraction
+* 💼 Job description analysis
+* 🤖 AI-powered resume/job matching
+* 📊 Overall match score
+* 🛠️ Skills match analysis
+* ❌ Missing skills identification
+* 💼 Experience analysis
+* ✨ Resume improvement suggestions
+* 🎯 Interview question generation
+* 📚 Analysis history
+* 💾 Browser-based local storage
 
 ## Tech Stack
 
-- Next.js (App Router)
-- TypeScript
-- React
-- Tailwind CSS
-- Lucide React
-- Zod
-- Google Gemini API (`@google/genai`)
+* **Next.js** — App Router & API Routes
+* **TypeScript**
+* **React**
+* **Tailwind CSS**
+* **Lucide React**
+* **Zod** — AI response validation
+* **Google Gemini API** — AI analysis
 
 ## Architecture
 
-Planned architecture:
-
-```
-                    ResumeLens
-
-                      Browser
-                         |
-                         v
-                    Next.js UI
-                         |
-                         v
-                  /api/analyze
-                         |
-             +-----------+-----------+
-             |                       |
-             v                       v
-       PDF Text Extraction       LLM API
-                                     |
-                                     v
-                              Structured JSON
-                                     |
-                                     v
-                              Zod Validation
-                                     |
-                                     v
-                              Analysis Result
-                                     |
-                                     v
-                                Next.js UI
-                                     |
-                                     v
-                                localStorage
+```text
+                    Browser
+                       |
+                       v
+                  Next.js UI
+                       |
+                       v
+                /api/analyze
+                       |
+              +--------+--------+
+              |                 |
+              v                 v
+       PDF Text Extraction   Gemini API
+                                |
+                                v
+                         Structured JSON
+                                |
+                                v
+                         Zod Validation
+                                |
+                                v
+                         Analysis Result
+                                |
+                                v
+                           Next.js UI
+                                |
+                                v
+                           localStorage
 ```
 
 ### Why Next.js API Routes?
 
-The application will use Next.js server-side API routes instead of a separate
-Express backend. This keeps the project simple while allowing the LLM API key to
-remain server-side.
+A separate Express backend is not required for this lightweight portfolio project.
 
-### Why No Database?
-
-This initial portfolio version will use browser `localStorage` for analysis
-history. A production version could use PostgreSQL and authentication.
+Next.js API Routes keep the architecture simple while ensuring that the Gemini API key remains server-side.
 
 ## Security
 
-- The LLM API key will never be exposed to the browser.
-- Secrets are stored in environment variables and will not use `NEXT_PUBLIC_`
-  variables.
-- `.env.example` documents the required variables; real values belong in
-  `.env.local`, which is git-ignored.
+* Gemini API key is never exposed to the browser.
+* Secrets are stored in environment variables.
+* Sensitive variables do not use the `NEXT_PUBLIC_` prefix.
+* `.env.local` is git-ignored.
+* `.env.example` documents the required environment variables.
 
-## Future Improvements
+## Storage
 
-Potential future improvements, intentionally **not** part of the initial version:
+The initial version uses browser `localStorage` for analysis history.
 
-- Authentication
-- PostgreSQL
-- Redis
-- Background processing
-- S3 resume storage
-- OCR
-- Rate limiting
-- Multiple LLM providers
-- Analytics
+A production version could use:
 
-## Local Development
+* PostgreSQL
+* Authentication
+* Redis
+* S3/object storage
+* Background processing
 
-Requires Node.js 20+ and npm.
+## Getting Started
+
+### Prerequisites
+
+* Node.js 20+
+* npm
+* Google Gemini API key
+
+### Installation
 
 ```bash
-# Install dependencies
 npm install
+```
 
-# Copy environment template
-cp .env.example .env.local
+### Environment Variables
 
-# Start the development server (http://localhost:3000)
+Create a `.env.local` file:
+
+```env
+GEMINI_API_KEY=your_api_key_here
+```
+
+### Run Development Server
+
+```bash
 npm run dev
+```
 
-# Run the linter
+Open http://localhost:3000.
+
+### Other Commands
+
+```bash
+# Run linter
 npm run lint
 
-# Create a production build
+# Create production build
 npm run build
 
-# Serve the production build
+# Start production server
 npm run start
 ```
 
 ## Project Structure
 
-```
+```text
 resume-lens/
-├── app/          # Next.js App Router routes and layouts
-├── components/   # React components
-├── lib/          # Shared utilities and validation schemas
-├── types/        # Shared TypeScript types
-├── public/       # Static assets
-├── .env.example  # Environment variable template
+├── app/              # Next.js pages and API routes
+├── components/       # React components
+├── lib/              # AI, validation and utilities
+├── types/            # TypeScript types
+├── public/            # Static assets
+├── .env.example       # Environment variable template
 └── ...
 ```
 
 ## Project Status
 
-Initial setup completed. Application features will be implemented incrementally.
+🚧 **In Development**
+
+* [x] Initial project setup
+* [ ] Resume PDF upload
+* [ ] PDF text extraction
+* [ ] Job description input
+* [ ] Gemini API integration
+* [ ] Structured AI response
+* [ ] Zod validation
+* [ ] Resume/job analysis
+* [ ] Analysis dashboard
+* [ ] Interview questions
+* [ ] Analysis history
+
+## Future Improvements
+
+* Authentication
+* PostgreSQL
+* S3 resume storage
+* Redis
+* OCR
+* Rate limiting
+* Multiple LLM providers
+* Advanced resume parsing
+
+## License
+
+This project is built for educational and portfolio purposes.
